@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f2f0df">
+  <meta name="theme-color" id="theme-color" content="#f2f0df">
   <title>Pro Weather — Local Forecast</title>
   <style>
     :root {
@@ -15,7 +15,7 @@
       --surface: #fffef6;
       --green: #244b43;
       --mint: #c8e1d1;
-      --yellow: #f5cf61;
+      --yellow: #f5d561;
       --coral: #db7255;
       --sky: #b8dce1;
       --visual-ink: #385a57;
@@ -27,7 +27,7 @@
 
     :root[data-theme="dark"] {
       color-scheme: dark;
-      --paper: #202923;
+      --paper: #000;
       --ink: #ecebdc;
       --muted: #b0b9ad;
       --line: #4b594e;
@@ -39,6 +39,8 @@
       --contour: #d5e3da45;
       --grain: #ffffff0c;
     }
+
+    :root[data-theme="dark"] body { background-image: none; }
 
     * { box-sizing: border-box; }
 
@@ -102,6 +104,7 @@
       aspect-ratio: 1;
       place-items: center;
       border: 1px solid var(--ink);
+      border-radius: 12px;
       background: var(--surface);
       color: var(--ink);
       cursor: pointer;
@@ -118,6 +121,36 @@
       padding: 22px 0 18px;
     }
 
+    .toolbar-options { display: grid; gap: 10px; }
+
+    .unit-switch {
+      display: inline-flex;
+      width: fit-content;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .unit-switch button {
+      min-width: 42px;
+      padding: 6px 9px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .unit-switch button[aria-pressed="true"] {
+      background: var(--green);
+      color: #fffdf1;
+    }
+
+    .unit-switch button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
     .eyebrow, .section-label {
       margin: 0;
       color: var(--muted);
@@ -132,6 +165,8 @@
       width: min(390px, 100%);
       min-height: 44px;
       border: 1px solid var(--ink);
+      border-radius: 12px;
+      overflow: hidden;
       background: var(--surface);
     }
 
@@ -160,7 +195,7 @@
 
     .lookup button:hover { background: #f0bd3b; }
 
-    .weather-frame { border: 2px solid var(--ink); background: var(--paper); }
+    .weather-frame { overflow: hidden; border: 2px solid var(--ink); border-radius: 18px; background: var(--paper); }
 
     .current {
       display: grid;
@@ -197,6 +232,7 @@
       flex: 0 0 auto;
       padding: 6px 8px;
       border: 1px solid #ffffff66;
+      border-radius: 6px;
       color: #e4eedf;
       font-size: 9px;
       text-transform: uppercase;
@@ -315,8 +351,9 @@
     .forecast {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      border-top: 2px solid var(--ink);
-      border-bottom: 2px solid var(--ink);
+      overflow: hidden;
+      border: 1px solid var(--ink);
+      border-radius: 14px;
       background: var(--surface);
     }
 
@@ -336,6 +373,7 @@
     }
 
     .status[data-error="true"] { color: #a93f2e; }
+    :root[data-theme="dark"] .status[data-error="true"] { color: #ff9b83; }
 
     .footer {
       display: flex;
@@ -388,8 +426,13 @@
     </header>
 
     <section class="toolbar" aria-label="Location search">
-      <div>
+      <div class="toolbar-options">
         <p class="eyebrow">Your neighborhood, right now</p>
+        <div class="unit-switch" role="group" aria-label="Temperature units">
+          <button id="unit-celsius" type="button" aria-pressed="true">°C</button>
+          <button id="unit-fahrenheit" type="button" aria-pressed="false">°F</button>
+          <button id="unit-kelvin" type="button" aria-pressed="false">K</button>
+        </div>
       </div>
       <form class="lookup" id="search-form">
         <input id="city-input" type="search" placeholder="Find a city..." aria-label="Search for a city" autocomplete="off" required>
@@ -408,10 +451,10 @@
             <span class="station-tag" id="source-label">Live report</span>
           </div>
           <div>
-            <p class="temperature-label">AIR TEMPERATURE / KELVIN</p>
-            <p class="temperature"><span id="temperature">—</span><small> K</small></p>
+            <p class="temperature-label" id="temperature-label">AIR TEMPERATURE / °C</p>
+            <p class="temperature"><span id="temperature">—</span><small id="temperature-unit"> °C</small></p>
             <div class="condition-line">
-              <span id="feels-like">Feels like — K</span>
+              <span id="feels-like">Feels like — °C</span>
               <span id="updated">Fetching report...</span>
             </div>
           </div>
@@ -436,7 +479,7 @@
 
     <div class="forecast-heading">
       <h2>Five-day outlook</h2>
-      <p>Daily high / low · K</p>
+      <p id="forecast-unit-label">Daily high / low · °C</p>
     </div>
     <section class="forecast" id="forecast" aria-label="Five-day forecast">
       <div class="forecast-day"><p class="forecast-date">Loading</p></div>
@@ -446,7 +489,7 @@
       <div class="forecast-day"><p class="forecast-date">Loading</p></div>
     </section>
     <p class="status" id="status" role="status" aria-live="polite">Contacting the weather station...</p>
-    <footer class="footer"><span>Temperatures shown in Kelvin · 0 °C = 273.15 K</span><span>Weather: <span id="data-source">Open-Meteo</span> · Air quality &amp; astronomy: Open-Meteo</span></footer>
+    <footer class="footer"><span id="temperature-footer">Temperatures shown in Celsius</span><span>Weather: <span id="data-source">Open-Meteo</span> · Air quality &amp; astronomy: Open-Meteo</span></footer>
   </main>
 
   <script>
@@ -455,7 +498,11 @@
       input: document.querySelector("#city-input"),
       location: document.querySelector("#location"),
       temperature: document.querySelector("#temperature"),
+      temperatureUnit: document.querySelector("#temperature-unit"),
+      temperatureLabel: document.querySelector("#temperature-label"),
       feelsLike: document.querySelector("#feels-like"),
+      forecastUnitLabel: document.querySelector("#forecast-unit-label"),
+      temperatureFooter: document.querySelector("#temperature-footer"),
       updated: document.querySelector("#updated"),
       localTime: document.querySelector("#local-time"),
       weatherCode: document.querySelector("#weather-code"),
@@ -471,7 +518,10 @@
       status: document.querySelector("#status"),
       sourceLabel: document.querySelector("#source-label"),
       dataSource: document.querySelector("#data-source"),
-      themeToggle: document.querySelector("#theme-toggle")
+      themeToggle: document.querySelector("#theme-toggle"),
+      celsiusToggle: document.querySelector("#unit-celsius"),
+      fahrenheitToggle: document.querySelector("#unit-fahrenheit"),
+      kelvinToggle: document.querySelector("#unit-kelvin")
     };
 
     const conditions = [
@@ -500,8 +550,48 @@
       return conditions.find((entry) => entry.codes.includes(code)) || { label: "Variable", symbol: "◌" };
     }
 
-    function kelvin(celsius) {
-      return (celsius + 273.15).toFixed(2);
+    let temperatureUnit = "C";
+    let latestReport = null;
+
+    function formatTemperature(celsius) {
+      if (!Number.isFinite(celsius)) return "—";
+      if (temperatureUnit === "K") return (celsius + 273.15).toFixed(2);
+      const value = temperatureUnit === "F" ? celsius * 9 / 5 + 32 : celsius;
+      return String(Math.round(value));
+    }
+
+    function setTemperatureUnit(unit) {
+      temperatureUnit = unit;
+      const unitLabel = unit === "K" ? "K" : `°${unit}`;
+      elements.celsiusToggle.setAttribute("aria-pressed", String(unit === "C"));
+      elements.fahrenheitToggle.setAttribute("aria-pressed", String(unit === "F"));
+      elements.kelvinToggle.setAttribute("aria-pressed", String(unit === "K"));
+      elements.temperatureLabel.textContent = `AIR TEMPERATURE / ${unitLabel}`;
+      elements.temperatureUnit.textContent = ` ${unitLabel}`;
+      elements.forecastUnitLabel.textContent = `Daily high / low · ${unitLabel}`;
+      elements.temperatureFooter.textContent = `Temperatures shown in ${unit === "K" ? "Kelvin" : unit === "C" ? "Celsius" : "Fahrenheit"}`;
+      if (latestReport) {
+        renderWeather(latestReport.place, latestReport.data, latestReport.source, latestReport.details);
+      }
+      try { localStorage.setItem("pro-weather-unit", unit); } catch {}
+    }
+
+    function rounded(value) {
+      return Number.isFinite(value) ? Math.round(value) : "—";
+    }
+
+    function timeFromValue(value, timeZone) {
+      if (typeof value !== "string" || !value) return "Unavailable";
+      if (timeZone) {
+        const date = new Date(value);
+        if (!Number.isNaN(date.getTime())) {
+          try {
+            return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
+          } catch {}
+        }
+      }
+      const match = value.match(/T(\d{2}:\d{2})/);
+      return match ? match[1] : "Unavailable";
     }
 
     function airQualityCategory(value) {
@@ -539,7 +629,7 @@
       for (const station of stationList.features.slice(0, 3)) {
         try {
           const result = await fetchJson(`https://api.weather.gov/stations/${station.properties.stationIdentifier}/observations/latest`);
-          if (result.properties.temperature?.value !== null && result.properties.temperature?.value !== undefined) {
+          if (Number.isFinite(result.properties?.temperature?.value)) {
             observation = result.properties;
             break;
           }
@@ -560,7 +650,7 @@
       }
 
       const days = [...dates.entries()]
-        .filter(([, day]) => day.temperature_2m_max !== null && day.temperature_2m_min !== null)
+        .filter(([, day]) => Number.isFinite(day.temperature_2m_max) && Number.isFinite(day.temperature_2m_min))
         .slice(0, 5);
       const windUnit = observation.windSpeed?.unitCode || "";
       const windValue = observation.windSpeed?.value;
@@ -655,10 +745,18 @@
         if (!data) data = await fetchOpenMeteoWeather(place);
         const [airQuality, astronomy] = await Promise.all([
           fetchAirQuality(place).catch(() => null),
-          data.daily.sunrise ? Promise.resolve(data.daily) : fetchAstronomy(place).catch(() => null)
+          data.daily?.sunrise ? Promise.resolve(data.daily) : fetchAstronomy(place).catch(() => null)
         ]);
-        renderWeather(place, data, source, { airQuality, astronomy });
-        elements.status.textContent = `Report received for ${place.name}.${fallbackNote}`;
+        latestReport = { place, data, source, details: { airQuality, astronomy } };
+        renderWeather(place, data, source, latestReport.details);
+        const hasCurrentObservation = Number.isFinite(data.current?.temperature_2m);
+        const hasForecast = Array.isArray(data.daily?.time)
+          && data.daily.time.some((_, index) =>
+            Number.isFinite(data.daily.temperature_2m_max?.[index])
+            || Number.isFinite(data.daily.temperature_2m_min?.[index]));
+        const reportStatus = hasCurrentObservation && hasForecast ? "Report received" : "Partial report";
+        const missingDataNote = hasCurrentObservation && hasForecast ? "" : " Some weather data is unavailable.";
+        elements.status.textContent = `${reportStatus} for ${place.name}.${missingDataNote}${fallbackNote}`;
       } catch (error) {
         elements.status.textContent = error instanceof TypeError
           ? "The weather station could not be reached. Check your connection and try again."
@@ -667,45 +765,68 @@
       }
     }
 
-    function renderWeather(place, data, source, details) {
-      const current = data.current;
+    function renderWeather(place, data, source, details = {}) {
+      const current = data?.current || {};
+      const daily = data?.daily || {};
       const condition = weatherFor(current.weather_code);
       const symbol = source === "NWS" && !current.is_day && condition.symbol === "☀" ? "☾" : condition.symbol;
       const placeName = [place.name, place.admin1, place.country].filter((part, index, all) => part && all.indexOf(part) === index).join(", ");
-      const timeLabel = source === "NWS"
-        ? new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: data.timeZone }).format(new Date(current.time))
-        : current.time.slice(11, 16);
+      const timeLabel = timeFromValue(current.time, source === "NWS" ? data?.timeZone : null);
 
       elements.location.textContent = placeName;
-      elements.temperature.textContent = kelvin(current.temperature_2m);
-      elements.feelsLike.textContent = `Feels like ${kelvin(current.apparent_temperature)} K`;
-      elements.updated.textContent = `Updated ${timeLabel}`;
-      elements.localTime.textContent = `LOCAL TIME ${timeLabel}`;
-      elements.weatherCode.textContent = source === "NWS" ? "NWS OBS" : `WX / ${String(current.weather_code).padStart(2, "0")}`;
+      elements.temperature.textContent = formatTemperature(current.temperature_2m);
+      const unitLabel = temperatureUnit === "K" ? "K" : `°${temperatureUnit}`;
+      elements.feelsLike.textContent = `Feels like ${formatTemperature(current.apparent_temperature)} ${unitLabel}`;
+      elements.updated.textContent = timeLabel === "Unavailable" ? "Update time unavailable" : `Updated ${timeLabel}`;
+      elements.localTime.textContent = `LOCAL TIME ${timeLabel === "Unavailable" ? "--:--" : timeLabel}`;
+      elements.weatherCode.textContent = source === "NWS" ? "NWS OBS" : `WX / ${Number.isFinite(current.weather_code) ? String(current.weather_code).padStart(2, "0") : "--"}`;
       elements.symbol.textContent = symbol;
       elements.condition.textContent = condition.label;
-      elements.daylight.textContent = current.is_day ? "DAYLIGHT\nOBSERVATION" : "NIGHT\nOBSERVATION";
+      const isDay = current.is_day === true || current.is_day === 1 ? true
+        : current.is_day === false || current.is_day === 0 ? false
+        : null;
+      elements.daylight.textContent = isDay !== null
+        ? isDay ? "DAYLIGHT\nOBSERVATION" : "NIGHT\nOBSERVATION"
+        : "LIGHT\nUNAVAILABLE";
       elements.daylight.style.whiteSpace = "pre-line";
-      elements.humidity.innerHTML = `${current.relative_humidity_2m == null ? "—" : Math.round(current.relative_humidity_2m)}<small> %</small>`;
-      elements.wind.innerHTML = `${current.wind_speed_10m === null ? "—" : Math.round(current.wind_speed_10m)}<small> km/h</small>`;
-      elements.airQuality.textContent = details.airQuality === null ? "Unavailable" : `${Math.round(details.airQuality)} · ${airQualityCategory(details.airQuality)}`;
+      elements.humidity.innerHTML = `${rounded(current.relative_humidity_2m)}<small> %</small>`;
+      elements.wind.innerHTML = `${rounded(current.wind_speed_10m)}<small> km/h</small>`;
+      elements.airQuality.textContent = Number.isFinite(details.airQuality) ? `${Math.round(details.airQuality)} · ${airQualityCategory(details.airQuality)}` : "Unavailable";
       elements.moonPhase.textContent = moonPhaseName(details.astronomy?.moon_phase?.[0]);
-      const sunrise = details.astronomy?.sunrise?.[0]?.slice(11, 16) || "—";
-      const sunset = details.astronomy?.sunset?.[0]?.slice(11, 16) || "—";
+      const sunrise = timeFromValue(details.astronomy?.sunrise?.[0]);
+      const sunset = timeFromValue(details.astronomy?.sunset?.[0]);
       elements.sunriseSunset.textContent = `${sunrise} / ${sunset}`;
       elements.sourceLabel.textContent = source === "NWS" ? "NWS station" : "Live report";
       elements.dataSource.textContent = source;
 
-      elements.forecast.replaceChildren(...data.daily.time.map((date, index) => {
+      const forecastDates = Array.isArray(daily.time) ? daily.time : [];
+      elements.forecast.replaceChildren(...forecastDates.slice(0, 5).map((date, index) => {
         const day = document.createElement("article");
-        const dailyCondition = weatherFor(data.daily.weather_code[index]);
-        const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
+        const dailyCondition = weatherFor(daily.weather_code?.[index]);
+        const parsedDate = new Date(`${date}T12:00:00`);
+        const dateLabel = Number.isNaN(parsedDate.getTime())
+          ? "Date unavailable"
+          : parsedDate.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
         day.className = "forecast-day";
-        const high = data.daily.temperature_2m_max[index] === null ? "—" : `${kelvin(data.daily.temperature_2m_max[index])} K`;
-        const low = data.daily.temperature_2m_min[index] === null ? "—" : `${kelvin(data.daily.temperature_2m_min[index])} K low`;
-        day.innerHTML = `<p class="forecast-date">${dateLabel}</p><span class="forecast-symbol" aria-hidden="true">${dailyCondition.symbol}</span><p class="forecast-condition">${dailyCondition.label}</p><p class="forecast-temp">${high}<span>${low}</span></p>`;
+        const highValue = daily.temperature_2m_max?.[index];
+        const lowValue = daily.temperature_2m_min?.[index];
+        day.innerHTML = `<p class="forecast-date"></p><span class="forecast-symbol" aria-hidden="true"></span><p class="forecast-condition"></p><p class="forecast-temp"></p>`;
+        day.querySelector(".forecast-date").textContent = dateLabel;
+        day.querySelector(".forecast-symbol").textContent = dailyCondition.symbol;
+        day.querySelector(".forecast-condition").textContent = dailyCondition.label;
+        const degree = temperatureUnit === "K" ? "" : "°";
+        day.querySelector(".forecast-temp").textContent = Number.isFinite(highValue) ? `${formatTemperature(highValue)}${degree}` : "—";
+        const low = document.createElement("span");
+        low.textContent = Number.isFinite(lowValue) ? `${formatTemperature(lowValue)}${degree} low` : "—";
+        day.querySelector(".forecast-temp").append(low);
         return day;
       }));
+      for (let index = forecastDates.length; index < 5; index += 1) {
+        const day = document.createElement("article");
+        day.className = "forecast-day";
+        day.innerHTML = '<p class="forecast-date">Unavailable</p>';
+        elements.forecast.append(day);
+      }
     }
 
     elements.form.addEventListener("submit", (event) => {
@@ -717,6 +838,7 @@
     function setTheme(theme) {
       document.documentElement.dataset.theme = theme;
       const isDark = theme === "dark";
+      document.querySelector("#theme-color").content = isDark ? "#000000" : "#f2f0df";
       elements.themeToggle.textContent = isDark ? "☀" : "☾";
       elements.themeToggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
       elements.themeToggle.setAttribute("aria-pressed", String(isDark));
@@ -730,6 +852,13 @@
     elements.themeToggle.addEventListener("click", () => {
       setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
     });
+
+    let savedUnit = "C";
+    try { savedUnit = localStorage.getItem("pro-weather-unit") || "C"; } catch {}
+    setTemperatureUnit(["C", "F", "K"].includes(savedUnit) ? savedUnit : "C");
+    elements.celsiusToggle.addEventListener("click", () => setTemperatureUnit("C"));
+    elements.fahrenheitToggle.addEventListener("click", () => setTemperatureUnit("F"));
+    elements.kelvinToggle.addEventListener("click", () => setTemperatureUnit("K"));
 
     loadWeather("London");
   </script>

@@ -348,6 +348,23 @@
 
     .forecast-heading p { margin: 0; color: var(--muted); font-size: 10px; }
 
+    .hourly-forecast {
+      display: flex;
+      overflow-x: auto;
+      border: 1px solid var(--ink);
+      border-radius: 14px;
+      background: var(--surface);
+      scrollbar-color: var(--muted) transparent;
+    }
+
+    .hourly-item { flex: 1 0 78px; min-width: 0; padding: 14px 10px; text-align: center; }
+    .hourly-item + .hourly-item { border-left: 1px solid var(--line); }
+    .hourly-time { margin: 0; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .hourly-symbol { display: block; margin: 10px 0; color: var(--coral); font-family: Georgia, serif; font-size: 22px; }
+    .weather-icon { width: 1.25em; height: 1.25em; overflow: visible; }
+    .weather-icon * { stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+    .hourly-temp { margin: 0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+
     .forecast {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -478,6 +495,14 @@
     </section>
 
     <div class="forecast-heading">
+      <h2>Hourly forecast</h2>
+      <p id="hourly-unit-label">Next 12 hours · °C</p>
+    </div>
+    <section class="hourly-forecast" id="hourly-forecast" aria-label="Hourly forecast">
+      <article class="hourly-item"><p class="hourly-time">Loading</p></article>
+    </section>
+
+    <div class="forecast-heading">
       <h2>Five-day outlook</h2>
       <p id="forecast-unit-label">Daily high / low · °C</p>
     </div>
@@ -502,6 +527,7 @@
       temperatureLabel: document.querySelector("#temperature-label"),
       feelsLike: document.querySelector("#feels-like"),
       forecastUnitLabel: document.querySelector("#forecast-unit-label"),
+      hourlyUnitLabel: document.querySelector("#hourly-unit-label"),
       temperatureFooter: document.querySelector("#temperature-footer"),
       updated: document.querySelector("#updated"),
       localTime: document.querySelector("#local-time"),
@@ -514,6 +540,7 @@
       airQuality: document.querySelector("#air-quality"),
       moonPhase: document.querySelector("#moon-phase"),
       sunriseSunset: document.querySelector("#sunrise-sunset"),
+      hourlyForecast: document.querySelector("#hourly-forecast"),
       forecast: document.querySelector("#forecast"),
       status: document.querySelector("#status"),
       sourceLabel: document.querySelector("#source-label"),
@@ -529,15 +556,25 @@
       { codes: [1, 2], label: "Partly cloudy", symbol: "◒" },
       { codes: [3], label: "Overcast", symbol: "☁" },
       { codes: [45, 48], label: "Fog", symbol: "≋" },
-      { codes: [51, 53, 55, 56, 57], label: "Drizzle", symbol: "☂" },
-      { codes: [61, 63, 65, 66, 67, 80, 81, 82], label: "Rain", symbol: "☂" },
-      { codes: [71, 73, 75, 77, 85, 86], label: "Snow", symbol: "❄" },
-      { codes: [95, 96, 99], label: "Thunderstorm", symbol: "ϟ" }
+      { codes: [51, 53, 55], label: "Drizzle", symbol: "☂", precipitation: "drizzle" },
+      { codes: [56, 57, 66, 67], label: "Freezing precipitation", symbol: "❄", precipitation: "sleet" },
+      { codes: [61, 63, 65, 80, 81, 82], label: "Rain", symbol: "☂", precipitation: "rain" },
+      { codes: [71, 73, 75, 77, 85, 86], label: "Snow", symbol: "❄", precipitation: "snow" },
+      { codes: [95], label: "Thunderstorm", symbol: "ϟ", precipitation: "thunderstorm" },
+      { codes: [96, 99], label: "Thunderstorm with hail", symbol: "ϟ", precipitation: "hail" }
     ];
 
     function weatherFor(code) {
       if (typeof code === "string") {
         const description = code.toLowerCase();
+        const precipitation = /thunder|storm/.test(description) && /hail/.test(description) ? "hail"
+          : /thunder|storm/.test(description) ? "thunderstorm"
+          : /hail/.test(description) ? "hail"
+          : /freezing|sleet|ice pellets/.test(description) ? "sleet"
+          : /drizzle/.test(description) ? "drizzle"
+          : /snow|flurr/.test(description) ? "snow"
+          : /rain|shower/.test(description) ? "rain"
+          : null;
         const symbol = /thunder|storm/.test(description) ? "ϟ"
           : /snow|sleet|ice/.test(description) ? "❄"
           : /rain|shower|drizzle/.test(description) ? "☂"
@@ -545,9 +582,51 @@
           : /cloud|overcast/.test(description) ? (/partly|mostly|scattered/.test(description) ? "◒" : "☁")
           : /clear|fair|sun/.test(description) ? "☀"
           : "◌";
-        return { label: code, symbol };
+        return { label: code, symbol, precipitation };
       }
       return conditions.find((entry) => entry.codes.includes(code)) || { label: "Variable", symbol: "◌" };
+    }
+
+    function createWeatherIcon(precipitation) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "weather-icon");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("aria-hidden", "true");
+
+      const addShape = (tag, attributes) => {
+        const shape = document.createElementNS(svg.namespaceURI, tag);
+        for (const [name, value] of Object.entries(attributes)) shape.setAttribute(name, value);
+        svg.append(shape);
+      };
+      const addCloud = () => addShape("path", {
+        d: "M5 15.5a4 4 0 0 1 .7-7.94A6.1 6.1 0 0 1 17.4 9a3.4 3.4 0 0 1 .1 6.5H5Z",
+        fill: "var(--sky)",
+        "stroke-width": "1.6"
+      });
+
+      addCloud();
+      if (precipitation === "drizzle") {
+        addShape("path", { d: "m8 18-.7 1.4m5.2-1.4-.7 1.4m5.2-1.4-.7 1.4", fill: "none", "stroke-width": "1.7" });
+      } else if (precipitation === "rain") {
+        addShape("path", { d: "M7 18c0-1.3 1.5-3.2 1.5-3.2S10 16.7 10 18a1.5 1.5 0 1 1-3 0Zm6 1c0-1.3 1.5-3.2 1.5-3.2S16 17.7 16 19a1.5 1.5 0 1 1-3 0Zm5-1c0-1.1 1.2-2.7 1.2-2.7S20.5 16.9 20.5 18a1.25 1.25 0 1 1-2.5 0Z", fill: "currentColor", stroke: "none" });
+      } else if (precipitation === "snow") {
+        addShape("path", { d: "M7.5 17v4m-1.7-3 3.4 2m0-2-3.4 2m7.7-3v4m-1.7-3 3.4 2m0-2-3.4 2m5.7-3v4m-1.7-3 3.4 2m0-2-3.4 2", fill: "none", "stroke-width": "1.3" });
+      } else if (precipitation === "thunderstorm") {
+        addShape("path", { d: "m13 15-4 5h3l-1 4 5-6h-3l2-3Z", fill: "currentColor", stroke: "none" });
+      } else if (precipitation === "sleet") {
+        addShape("path", { d: "M7 18c0-1 1.2-2.6 1.2-2.6S9.5 17 9.5 18a1.25 1.25 0 1 1-2.5 0Zm8-1v4m-1.7-3 3.4 2m0-2-3.4 2", fill: "none", "stroke-width": "1.4" });
+      } else if (precipitation === "hail") {
+        addShape("circle", { cx: "8", cy: "18", r: "1.4", fill: "currentColor", stroke: "none" });
+        addShape("circle", { cx: "13", cy: "20", r: "1.4", fill: "currentColor", stroke: "none" });
+        addShape("circle", { cx: "18", cy: "18", r: "1.4", fill: "currentColor", stroke: "none" });
+      }
+      return svg;
+    }
+
+    function renderConditionIcon(container, condition) {
+      container.replaceChildren(condition.precipitation
+        ? createWeatherIcon(condition.precipitation)
+        : document.createTextNode(condition.symbol));
     }
 
     let temperatureUnit = "C";
@@ -569,6 +648,7 @@
       elements.temperatureLabel.textContent = `AIR TEMPERATURE / ${unitLabel}`;
       elements.temperatureUnit.textContent = ` ${unitLabel}`;
       elements.forecastUnitLabel.textContent = `Daily high / low · ${unitLabel}`;
+      elements.hourlyUnitLabel.textContent = `Next 12 hours · ${unitLabel}`;
       elements.temperatureFooter.textContent = `Temperatures shown in ${unit === "K" ? "Kelvin" : unit === "C" ? "Celsius" : "Fahrenheit"}`;
       if (latestReport) {
         renderWeather(latestReport.place, latestReport.data, latestReport.source, latestReport.details);
@@ -638,7 +718,10 @@
 
       if (!observation) throw new Error("No nearby NWS observation is available.");
 
-      const forecast = await fetchJson(properties.forecast);
+      const [forecast, hourlyForecast] = await Promise.all([
+        fetchJson(properties.forecast),
+        fetchJson(properties.forecastHourly)
+      ]);
       const dates = new Map();
       for (const period of forecast.properties.periods) {
         const date = period.startTime.slice(0, 10);
@@ -652,6 +735,7 @@
       const days = [...dates.entries()]
         .filter(([, day]) => Number.isFinite(day.temperature_2m_max) && Number.isFinite(day.temperature_2m_min))
         .slice(0, 5);
+      const hourlyPeriods = hourlyForecast.properties.periods.slice(0, 12);
       const windUnit = observation.windSpeed?.unitCode || "";
       const windValue = observation.windSpeed?.value;
       const windKmh = windValue === null || windValue === undefined ? null
@@ -675,6 +759,12 @@
           weather_code: days.map(([, day]) => day.weather_code),
           temperature_2m_max: days.map(([, day]) => day.temperature_2m_max),
           temperature_2m_min: days.map(([, day]) => day.temperature_2m_min)
+        },
+        hourly: {
+          time: hourlyPeriods.map((period) => period.startTime),
+          temperature_2m: hourlyPeriods.map((period) =>
+            period.temperatureUnit === "F" ? fahrenheitToCelsius(period.temperature) : period.temperature),
+          weather_code: hourlyPeriods.map((period) => period.shortForecast)
         }
       };
     }
@@ -685,6 +775,7 @@
         latitude: place.latitude,
         longitude: place.longitude,
         current: "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m",
+        hourly: "temperature_2m,weather_code",
         daily: "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,moon_phase",
         forecast_days: "5",
         timezone: "auto",
@@ -718,18 +809,50 @@
       return data.daily;
     }
 
-    async function loadWeather(city) {
+    function saveLastLocation(place) {
+      const location = {
+        name: place.name,
+        admin1: place.admin1 || "",
+        country: place.country || "",
+        country_code: place.country_code || "",
+        latitude: place.latitude,
+        longitude: place.longitude
+      };
+      try {
+        localStorage.setItem("pro-weather-last-location", JSON.stringify(location));
+      } catch (error) {
+        console.warn("Unable to save the last weather location.", error);
+      }
+    }
+
+    function getLastLocation() {
+      try {
+        const location = JSON.parse(localStorage.getItem("pro-weather-last-location") || "null");
+        if (!location || typeof location.name !== "string"
+          || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return null;
+        return location;
+      } catch (error) {
+        console.warn("Unable to read the last weather location.", error);
+        return null;
+      }
+    }
+
+    async function loadWeather(city, savedPlace = null) {
       elements.status.textContent = `Looking up ${city}...`;
       elements.status.dataset.error = "false";
 
       try {
-        const geoUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
-        geoUrl.search = new URLSearchParams({ name: city, count: "1", language: "en", format: "json" });
-        const geoResponse = await fetch(geoUrl);
-        if (!geoResponse.ok) throw new Error("Could not reach the location service.");
-        const geoData = await geoResponse.json();
-        const place = geoData.results?.[0];
+        let place = savedPlace;
+        if (!place) {
+          const geoUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
+          geoUrl.search = new URLSearchParams({ name: city, count: "1", language: "en", format: "json" });
+          const geoResponse = await fetch(geoUrl);
+          if (!geoResponse.ok) throw new Error("Could not reach the location service.");
+          const geoData = await geoResponse.json();
+          place = geoData.results?.[0];
+        }
         if (!place) throw new Error(`No location found for “${city}”. Try another city name.`);
+        saveLastLocation(place);
 
         let data;
         let source = "Open-Meteo";
@@ -780,7 +903,7 @@
       elements.updated.textContent = timeLabel === "Unavailable" ? "Update time unavailable" : `Updated ${timeLabel}`;
       elements.localTime.textContent = `LOCAL TIME ${timeLabel === "Unavailable" ? "--:--" : timeLabel}`;
       elements.weatherCode.textContent = source === "NWS" ? "NWS OBS" : `WX / ${Number.isFinite(current.weather_code) ? String(current.weather_code).padStart(2, "0") : "--"}`;
-      elements.symbol.textContent = symbol;
+      renderConditionIcon(elements.symbol, { ...condition, symbol });
       elements.condition.textContent = condition.label;
       const isDay = current.is_day === true || current.is_day === 1 ? true
         : current.is_day === false || current.is_day === 0 ? false
@@ -800,6 +923,38 @@
       elements.dataSource.textContent = source;
 
       const forecastDates = Array.isArray(daily.time) ? daily.time : [];
+      const hourly = data?.hourly || {};
+      const hourlyTimes = Array.isArray(hourly.time) ? hourly.time : [];
+      const currentTimestamp = typeof current.time === "string" ? Date.parse(current.time) : NaN;
+      const hourlyStart = Number.isFinite(currentTimestamp)
+        ? hourlyTimes.findIndex((hour) => Date.parse(hour) >= currentTimestamp)
+        : 0;
+      const startIndex = hourlyStart < 0 ? hourlyTimes.length : hourlyStart;
+      const hourlyCount = Math.min(hourlyTimes.length - startIndex, 12);
+      elements.hourlyForecast.replaceChildren(...Array.from({ length: hourlyCount }, (_, offset) => {
+        const index = startIndex + offset;
+        const item = document.createElement("article");
+        const hourlyCondition = weatherFor(hourly.weather_code?.[index]);
+        const hourLabel = typeof hourlyTimes[index] === "string"
+          ? hourlyTimes[index].match(/T(\d{2}:\d{2})/)?.[1] : null;
+        item.className = "hourly-item";
+        item.innerHTML = '<p class="hourly-time"></p><span class="hourly-symbol" aria-hidden="true"></span><p class="hourly-temp"></p>';
+        item.querySelector(".hourly-time").textContent = hourLabel || "Unavailable";
+        const icon = item.querySelector(".hourly-symbol");
+        renderConditionIcon(icon, hourlyCondition);
+        const degree = temperatureUnit === "K" ? "" : "°";
+        const formattedTemperature = Number.isFinite(hourly.temperature_2m?.[index])
+          ? `${formatTemperature(hourly.temperature_2m[index])}${degree}` : "—";
+        item.querySelector(".hourly-temp").textContent = formattedTemperature;
+        item.setAttribute("aria-label", `${hourLabel || "Unavailable time"}: ${hourlyCondition.label}, ${formattedTemperature}`);
+        return item;
+      }));
+      if (!hourlyCount) {
+        const item = document.createElement("article");
+        item.className = "hourly-item";
+        item.innerHTML = '<p class="hourly-time">Unavailable</p>';
+        elements.hourlyForecast.replaceChildren(item);
+      }
       elements.forecast.replaceChildren(...forecastDates.slice(0, 5).map((date, index) => {
         const day = document.createElement("article");
         const dailyCondition = weatherFor(daily.weather_code?.[index]);
@@ -812,7 +967,7 @@
         const lowValue = daily.temperature_2m_min?.[index];
         day.innerHTML = `<p class="forecast-date"></p><span class="forecast-symbol" aria-hidden="true"></span><p class="forecast-condition"></p><p class="forecast-temp"></p>`;
         day.querySelector(".forecast-date").textContent = dateLabel;
-        day.querySelector(".forecast-symbol").textContent = dailyCondition.symbol;
+        renderConditionIcon(day.querySelector(".forecast-symbol"), dailyCondition);
         day.querySelector(".forecast-condition").textContent = dailyCondition.label;
         const degree = temperatureUnit === "K" ? "" : "°";
         day.querySelector(".forecast-temp").textContent = Number.isFinite(highValue) ? `${formatTemperature(highValue)}${degree}` : "—";
@@ -860,7 +1015,8 @@
     elements.fahrenheitToggle.addEventListener("click", () => setTemperatureUnit("F"));
     elements.kelvinToggle.addEventListener("click", () => setTemperatureUnit("K"));
 
-    loadWeather("London");
+    const lastLocation = getLastLocation();
+    loadWeather(lastLocation ? lastLocation.name : "London", lastLocation);
   </script>
 </body>
 </html>
